@@ -1,0 +1,25 @@
+###################################
+
+
+:global telegramToken "YOUR-TOKEN";
+:global telegramUser "YOUR-USER";
+:local routerName [/system identity get name];
+:local uptime [/system resource get uptime];
+:local freeMemory [/system resource get free-memory];
+:local totalMemory [/system resource get total-memory];
+:local memoryUsage (100 - ((100 * $freeMemory) / $totalMemory));
+:local cpuLoad [/system resource get cpu-load];
+:local cpuFrequency [/system resource get cpu-frequency];
+:local freeHddPlace [/system resource get free-hdd-space];
+:local totalHddPlace [/system resource get total-hdd-space];
+:local hddUsage (100 - ((100 * $freeHddPlace) / $totalHddPlace));
+:local osVersion [/system resource get version];
+:local systemTime [/system clock get time];
+:local systemDate [/system clock get date];
+:local address  [ip address get [:pick [/ip address find interface="ether1"] 0] address]
+:local address1 [ip address get [:pick [/ip address find interface="ether1"] 1] address]
+:local address2 [ip address get [/ip address find interface="ether3"] address];
+
+:local statusMessage "<b>%F0%9F%93%88Router Status%F0%9F%93%89</b>%0A%0ARouter Name: <i>$routerName</i>%0ACPU: <i>$cpuLoad% - $cpuFrequency MHz</i>%0ARAM: <i>$freeMemory / $totalMemory B - $memoryUsage%</i>%0AROM: <i>$freeHddPlace / $totalHddPlace B - $hddUsage%</i>%0ARouterOS: <i>$osVersion </i>%0AUptime: <i>$uptime</i>%0ASystem Time: <i>$systemTime</i>%0ASystem Date: <i>$systemDate</i>%0AIP: $address $address1 LAN:$address2 %0A%0A%F0%9F%87%AE%F0%9F%87%B9MONITOR ACTIVE- ROUTEROS%F0%9F%99%BC%23VPN";
+:local tgUrl "https://api.telegram.org/bot$telegramToken/sendMessage?chat_id=$telegramUser&text=$statusMessage&parse_mode=html&disable_notification=true";
+/tool fetch url="$tgUrl" mode=http keep-result=no;
