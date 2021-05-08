@@ -1,0 +1,29 @@
+# Create Regexp for layer 7 filtering
+/ip firewall layer7-protocol
+add name=youtube regexp="^.*(host|HOST).+(youtube).*\\\$"
+
+# Mark the connection and packets
+/ip firewall mangle
+add action=mark-connection chain=prerouting protocol=udp dst-port=53 \
+connection-mark=no-mark layer7-protocol=youtube \
+new-connection-mark=youtube_conn \
+comment=youtube passthrough=yes
+
+add action=mark_packet chain=prerouting connection-mark=youtube_conn \
+new-packet-mark=youtube_packet
+
+# Drop the packets if they are marked
+/ip firewall filter
+add action=drop chain=forward packet-mark=youtube_packet
+add action=drop chain=input packet-mark=youtube_packet  
+
+
+# Remember that layer 7 only blocks unencrypted http traffic!
+/ip firewall layer7-protocol
+# Blocking /admin/
+add name="http admin1" regexp="^GET\\ /admin/"
+# Blocking /admin/ based on the protocol
+add name="http admin2" regexp="^GET\\ /admin/[^\\ ]*\\ HTTP/1\\.(0|1)"
+
+/ip firewall filter
+add action=reject chain=forward dst-port=80 layer7-protocol="http admin1" protocol=tcp reject-with=tcp-reset
