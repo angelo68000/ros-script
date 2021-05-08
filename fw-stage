@@ -1,0 +1,110 @@
+/ip firewall filter
+add action=drop chain=input comment="drop ssh brute forcers" dst-port=22 \
+    log=yes log-prefix=DROP-22 protocol=tcp src-address-list=ssh_blacklist
+add action=add-src-to-address-list address-list=ssh_blacklist \
+    address-list-timeout=1w3d chain=input connection-state=new dst-port=22 \
+    protocol=tcp src-address-list=ssh_stage3
+add action=add-src-to-address-list address-list=ssh_stage3 \
+    address-list-timeout=1m chain=input connection-state=new dst-port=22 \
+    protocol=tcp src-address-list=ssh_stage2
+add action=add-src-to-address-list address-list=ssh_stage2 \
+    address-list-timeout=1m chain=input connection-state=new dst-port=22 \
+    protocol=tcp src-address-list=ssh_stage1
+add action=add-src-to-address-list address-list=ssh_stage1 \
+    address-list-timeout=1m chain=input connection-state=new dst-port=22 \
+    protocol=tcp
+add action=drop chain=input comment="drop ssh brute forcers" dst-port=8291 \
+    log=yes log-prefix=DROP-8291 protocol=tcp src-address-list=ssh_blacklist
+add action=add-src-to-address-list address-list=ssh_blacklist \
+    address-list-timeout=1w3d chain=input connection-state=new dst-port=8291 \
+    protocol=tcp src-address-list=ssh_stage3
+add action=add-src-to-address-list address-list=ssh_stage3 \
+    address-list-timeout=1m chain=input connection-state=new dst-port=8291 \
+    protocol=tcp src-address-list=ssh_stage2
+add action=add-src-to-address-list address-list=ssh_stage2 \
+    address-list-timeout=1m chain=input connection-state=new dst-port=8291 \
+    protocol=tcp src-address-list=ssh_stage1
+add action=add-src-to-address-list address-list=ssh_stage1 \
+    address-list-timeout=1m chain=input connection-state=new dst-port=8291 \
+    log=yes log-prefix=ssh_stage1-8291 protocol=tcp
+add action=add-src-to-address-list address-list="port scanners" \
+    address-list-timeout=2w chain=input comment="Port scanners to list " \
+    protocol=tcp psd=21,3s,3,1
+add action=add-src-to-address-list address-list="port scanners" \
+    address-list-timeout=2w chain=input comment="NMAP FIN Stealth scan" \
+    protocol=tcp tcp-flags=fin,!syn,!rst,!psh,!ack,!urg
+add action=add-src-to-address-list address-list="port scanners" \
+    address-list-timeout=2w chain=input comment="SYN/FIN scan" protocol=tcp \
+    tcp-flags=fin,syn
+add action=add-src-to-address-list address-list="port scanners" \
+    address-list-timeout=2w chain=input comment="SYN/RST scan" protocol=tcp \
+    tcp-flags=syn,rst
+add action=add-src-to-address-list address-list="port scanners" \
+    address-list-timeout=2w chain=input comment="FIN/PSH/URG scan" protocol=\
+    tcp tcp-flags=fin,psh,urg,!syn,!rst,!ack
+add action=add-src-to-address-list address-list="port scanners" \
+    address-list-timeout=2w chain=input comment="ALL/ALL scan" protocol=tcp \
+    tcp-flags=fin,syn,rst,psh,ack,urg
+add action=add-src-to-address-list address-list="port scanners" \
+    address-list-timeout=2w chain=input comment="NMAP NULL scan" protocol=tcp \
+    tcp-flags=!fin,!syn,!rst,!psh,!ack,!urg
+add action=drop chain=input comment="dropping port scanners" \
+    src-address-list="port scanners"
+add action=add-src-to-address-list address-list="port scanners" \
+    address-list-timeout=2w chain=forward comment="Port scanners to list " \
+    protocol=tcp psd=21,3s,3,1
+add action=add-src-to-address-list address-list="port scanners" \
+    address-list-timeout=2w chain=forward comment="NMAP FIN Stealth scan" \
+    protocol=tcp tcp-flags=fin,!syn,!rst,!psh,!ack,!urg
+add action=add-src-to-address-list address-list="port scanners" \
+    address-list-timeout=2w chain=forward comment="SYN/FIN scan" protocol=tcp \
+    tcp-flags=fin,syn
+add action=add-src-to-address-list address-list="port scanners" \
+    address-list-timeout=2w chain=forward comment="SYN/RST scan" protocol=tcp \
+    tcp-flags=syn,rst
+add action=add-src-to-address-list address-list="port scanners" \
+    address-list-timeout=2w chain=forward comment="FIN/PSH/URG scan" \
+    protocol=tcp tcp-flags=fin,psh,urg,!syn,!rst,!ack
+add action=add-src-to-address-list address-list="port scanners" \
+    address-list-timeout=2w chain=forward comment="ALL/ALL scan" protocol=tcp \
+    tcp-flags=fin,syn,rst,psh,ack,urg
+add action=add-src-to-address-list address-list="port scanners" \
+    address-list-timeout=2w chain=forward comment="NMAP NULL scan" protocol=\
+    tcp tcp-flags=!fin,!syn,!rst,!psh,!ack,!urg
+add action=drop chain=forward comment="dropping port scanners" \
+    src-address-list="port scanners"
+add action=fasttrack-connection chain=forward comment="defconf: fasttrack" \
+    connection-state=established,related
+add action=accept chain=forward comment=\
+    "defconf: accept established,related, untracked" connection-state=\
+    established,related,untracked
+add action=drop chain=forward comment="defconf: drop invalid" \
+    connection-state=invalid
+add action=drop chain=forward comment=\
+    "defconf: drop all from WAN not DSTNATed" connection-nat-state=!dstnat \
+    connection-state=new in-interface-list=WAN
+add action=drop chain=forward
+add action=jump chain=input comment="Jump for icmp input flow" jump-target=\
+    ICMP protocol=icmp
+add action=accept chain=input comment=\
+    "defconf: accept established,related,untracked" connection-state=\
+    established,related,untracked
+add action=accept chain=input src-address-list=Remote_Access
+add action=drop chain=input comment="defconf: drop invalid" connection-state=\
+    invalid log=yes log-prefix="defconf: drop invalid"
+add action=jump chain=forward comment="Jump for icmp forward flow" \
+    jump-target=ICMP protocol=icmp
+add action=accept chain=ICMP comment=\
+    "Echo request - Avoiding Ping Flood, adjust the limit as needed" \
+    icmp-options=8:0 limit=2,5 protocol=icmp
+add action=accept chain=ICMP comment="Echo reply" icmp-options=0:0 protocol=\
+    icmp
+add action=accept chain=ICMP comment="Time Exceeded" icmp-options=11:0 \
+    protocol=icmp
+add action=accept chain=ICMP comment="Destination unreachable" icmp-options=\
+    3:0-1 protocol=icmp
+add action=accept chain=ICMP comment=PMTUD icmp-options=3:4 protocol=icmp
+add action=drop chain=ICMP comment="Drop to the other ICMPs" log=yes \
+    log-prefix="Drop to the other ICMPs" protocol=icmp
+add action=jump chain=output comment="Jump for icmp output" jump-target=ICMP \
+    protocol=icmp
