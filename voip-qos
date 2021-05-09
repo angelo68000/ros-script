@@ -1,0 +1,48 @@
+
+
+Differentiated Service Code Point (DSCP)
+'Differentiated Services' is a default network protocol designed to classify and manage network traffic. 
+
+It makes use of DSCP values to prioritise latency for certain traffic types over others.
+
+DSCP Name	DS Field Value (Dec)	IP Precedence (Description)
+CS0  0	0: Best Effort
+LE	 1	n/a
+CS1, AF11-13	8,  10, 12, 14	1: Priority
+CS2, AF21-23	16, 18, 20, 22	2: Immediate
+CS3, AF31-33	24, 26, 28, 30	3: Flash - mainly used for voice signaling
+CS4, AF41-43	32, 34, 36, 38	4: Flash Override
+CS5, EF	      40, 46	        5: Critical - mainly used for voice RTP
+CS6	          48	            6: Internetwork Control
+CS7	          56	            7: Network Control
+
+
+/ip firewall mangle
+add action=mark-connection chain=forward comment=SIP dst-address=1.2.3.4 dst-port=5060 \
+new-connection-mark=SIP_Connection passthrough=yes protocol=udp
+add action=mark-packet chain=forward connection-mark=SIP_Connection new-packet-mark=SIP_Packet \
+passthrough=yes
+add action=mark-connection chain=forward comment=RTP dst-address=1.2.3.4 new-connection-mark=\
+RTP_Connection passthrough=yes port=10000-12000 protocol=udp
+add action=mark-packet chain=forward connection-mark=RTP_Connection new-packet-mark=RTP_Packet \
+passthrough=yes protocol=udp
+add action=change-dscp chain=postrouting comment="DSCP Priority" dst-address=1.2.3.4 new-dscp=46 \
+packet-mark=RTP_Packet passthrough=yes
+
+
+/queue tree
+add limit-at=20M max-limit=20M name=Upload parent=pppoe-out1 queue=default
+add limit-at=128k max-limit=128k name=Priority1-Up packet-mark=RTP_Packet parent=Upload priority=1 queue=\
+default
+add limit-at=20k max-limit=20k name=Priority2-Up packet-mark=SIP_Packet parent=Upload priority=2 queue=\
+default
+add name=Priority3-Up packet-mark=no-mark parent=Upload priority=3 queue=default
+add limit-at=20M max-limit=20M name=Download parent=bridge queue=default
+add limit-at=128k max-limit=128k name=Priority1-Down packet-mark=RTP_Packet parent=Download priority=1 \
+queue=default
+add limit-at=20k max-limit=20k name=Priority2-Down packet-mark=SIP_Packet parent=Download priority=2 \
+queue=default
+add name=Priority3-Down packet-mark=no-mark parent=Download priority=3 queue=default
+
+
+
