@@ -7,3 +7,4 @@ Mental Special Supernatural
 - L7-FILTER -- Example L7-FILTER for ROS
 - hairpin-nat -- Example for ROS and INTERNAL SERVER 
 - telegram-bot -- ROS  stats to TELEGRAM channel
+- voip-qos -- ROS qos for voip connection
