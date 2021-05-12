@@ -1,0 +1,52 @@
+#################### REMEMBER TO SETUP A BTSERVER ON A REMOTE MK ##############################################
+
+
+:log info "SpeedTest is running";
+:local luser "xxx";
+:local lpass "xxx";
+:local Addr  "xxxxxxxxxxx";
+
+:local avrRX 0;
+:local avrTX 0;
+
+
+# DOWNLOAD TEST
+:log info "SpeedTest Download";
+:do {/tool
+   bandwidth-test duration=30s user=$luser password=$lpass protocol=tcp address=$Addr direction=receive do={
+     :set $avrRX ("Velocità Download: " . ($"rx-total-average" / 1048576) . "." . ($"rx-total-average" % (1048576) / 1024) . " Mbps" );
+   }
+} on-error={:log error message="RX script failed"}
+
+:delay 2s;
+
+# UPLOAD TEST
+:log info "SpeedTest Upload";
+:do {/tool
+  bandwidth-test duration=30s user=$luser password=$lpass protocol=tcp address=$Addr direction=transmit do={
+     :set $avrTX ("Velocità Upload: " . ($"tx-total-average" / 1048576) . "." . ($"tx-total-average" % (1048576) / 1024) . " Mbps" );
+  }
+} on-error={:log error message="TX script failed"}
+
+:log info message=$avrRX;
+:log info message=$avrTX;
+:log info "-------- Fine Test ------------";
+
+
+################# SAVING RESULTS WITH DATE ######################
+:local filename2 "SPEEDTEST.txt"
+:local ds [/system clock get date];
+:local months ("gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic");
+:local month [ :pick $ds 0 3 ];
+:local mm ([ :find $months $month -1 ] + 1);
+:if ($mm < 10) do={ :set mm ("0" . $mm); };
+:set ds ([:pick $ds 7 11] . $mm . [:pick $ds 4 6]);
+
+:if  ( [:len [/file find name=$filename2]] = 0) do={
+:log info "Log file non esiste. Creo il file.....";
+/file print file=$filename2 where name="";
+}
+
+:log info "Adding result to the end of the lof file......";
+/file set $filename2 contents=([get $filename2 contents]  ."\n".$ds."-->" . $avrRX);
+/file set $filename2 contents=([get $filename2 contents] ."    ". $avrTX);
