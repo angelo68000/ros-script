@@ -1,0 +1,59 @@
+######################## GENERATE CERTIFICATE ####################
+
+
+/certificate add name=CA country="IT" state="IT" locality=RM organization=XXX.XXX  common-name="CA" key-size=4096 days-valid=3650 key-usage=crl-sign,key-cert-sign
+
+/certificate sign CA ca-crl-host=127.0.0.1 name="CA" 
+
+/certificate add name=server country="IT" state="IT" locality=RM organization=XXX.XXX  common-name="server" key-size=4096 days-valid=3650 key-usage=digital-signature,key-encipherment,tls-server
+
+/certificate sign server ca="CA" name="server" 
+
+/certificate add name=client country="IT" state="IT" locality=RM organization=XXX.XXX  common-name="client" key-size=4096 days-valid=3650 key-usage=tls-client
+
+/certificate sign client ca="CA" name="client"
+
+/certificate add name=client1 copy-from="client" common-name="client1"
+
+/certificate sign client1 ca="CA" name="client1"
+
+/certificate export-certificate CA export-passphrase=""
+
+/certificate export-certificate client1 export-passphrase=12345678
+
+#####################################################################
+
+EXPORT THIS FILE !!!!
+
+cert_export_CA.crt                                                                                           
+cert_export_client1.crt                                                                                   
+cert_export_client1.key
+
+#####################################################################
+
+FOR FAST USER CREATION USE ONLY 
+
+/certificate add name=clientN copy-from="client" common-name="clientN"
+
+/certificate sign clientN ca="CA" name="clientN"
+
+/certificate export-certificate client1 export-passphrase=12345678
+
+#####################################################################
+
+SERVER SETUP 
+
+/interface ovpn-server server
+set auth=sha1 certificate=CA cipher=aes256 default-profile=default-encryption enabled=yes keepalive-timeout=60 mac-address=FE:02:7A:60:79:29 max-mtu=1500 mode=ip netmask=24 port=1194 require-client-certificate=yes
+
+/ppp profile print          
+ 
+1 * name="default-encryption" local-address=10.161.50.1 remote-address=dhcp_pool0 use-mpls=default use-compression=no use-encryption=yes only-one=no change-tcp-mss=yes use-upnp=default address-list="" on-up="" on-down="" 
+
+
+/ppp secret
+add caller-id="" disabled=no limit-bytes-in=0 limit-bytes-out=0 !local-address name=test password=123456 profile=default-encryption !remote-address routes="" service=ovpn
+
+####################################################################
+
+
