@@ -1,0 +1,103 @@
+# ------------------------------------------------------------------
+# NOTA BENE: nel template è presente una macro, WAN_IP_INTERFACE, che
+# deve essere appositamente espansa in fase di configurazione con:
+#
+# ether5: in caso di collegamento tra firewall e CPE mediante
+#		  interfaccia ether5 dedicata
+#
+# pppoe-out1: in caso di firewall collegato direttamente tramite
+#		  PPPoE client
+#
+# wan-VLAN-100: in caso di circuito WAN erogato tramite terminazione
+#          ^^^    ethernet taggata in 802.1q
+#    user VLAN
+# ------------------------------------------------------------------
+
+
+
+# ------------------------------------------------------------------
+# Configurazione Prefissi NOT GLOBALLY ROUTABLE (RFC-3330):
+
+/ip firewall address-list remove [find list="RFC-3330"]
+/ip firewall address-list add address=0.0.0.0/8 comment="" disabled=no list="RFC-3330"
+/ip firewall address-list add address=10.0.0.0/8 comment="" disabled=no list="RFC-3330"
+/ip firewall address-list add address=127.0.0.0/8 comment="" disabled=no list="RFC-3330"
+/ip firewall address-list add address=169.254.0.0/16 comment="" disabled=no list="RFC-3330"
+/ip firewall address-list add address=172.16.0.0/12 comment="" disabled=no list="RFC-3330"
+/ip firewall address-list add address=192.0.2.0/24 comment="" disabled=no list="RFC-3330"
+/ip firewall address-list add address=192.168.0.0/16 comment="" disabled=no list="RFC-3330"
+/ip firewall address-list add address=198.18.0.0/15 comment="" disabled=no list="RFC-3330"
+/ip firewall address-list add address=224.0.0.0/3 comment="" disabled=no list="RFC-3330"
+
+
+
+# ------------------------------------------------------------------
+# Configurazione DEFAULT IPv4 Filtering:
+
+/ip firewall filter remove [find]
+
+/ip firewall filter add action=accept chain=input comment="SSH INPUT MGMT (Default Disabled)" disabled=yes dst-port=22 protocol=tcp
+/ip firewall filter add action=accept chain=input comment="WINBOX INPUT MGMT (Default Disabled)" disabled=yes dst-port=8291 protocol=tcp
+
+/ip firewall filter add action=accept chain=input comment="ACCEPT IPSec FROM IPSecPeers ACCESS LIST" disabled=no src-port=500 dst-port=500 protocol=udp src-address-list=IPSecPeers
+/ip firewall filter add action=accept chain=input comment="ACCEPT IP-ENCAPSULATED FROM IPSecPeers ACCESS LIST" disabled=no protocol=ipencap src-address-list=IPSecPeers
+
+/ip firewall filter add chain=icmp action=accept comment="ICMP ECHO REPLY" disabled=no icmp-options=0:0 protocol=icmp
+/ip firewall filter add chain=icmp action=accept comment="ICMP DESTINATION UNREACHABLE" disabled=no icmp-options=3 protocol=icmp
+/ip firewall filter add chain=icmp action=accept comment="ICMP SOURCE QUENCH" disabled=no icmp-options=4:0 protocol=icmp
+/ip firewall filter add chain=icmp action=accept comment="ICMP ECHO REQUEST" disabled=no icmp-options=8:0 protocol=icmp
+/ip firewall filter add chain=icmp action=accept comment="ICMP TIME EXCEEDED" disabled=no icmp-options=11:0 protocol=icmp
+/ip firewall filter add chain=icmp action=accept comment="ICMP BAD PARAMETER" disabled=no icmp-options=12:0 protocol=icmp
+/ip firewall filter add chain=icmp action=log    comment="LOG NOT ALLOWED ICMPs" disabled=no log-prefix=ICMP-DROP protocol=icmp
+/ip firewall filter add chain=icmp action=drop   comment="DROP NOT ALLOWED ICMPs" disabled=no protocol=icmp
+
+/ip firewall filter add chain=std_filters action=log    comment="LOG NOT GLOBALLY ROUTABLE - RFC-3330"  disabled=no src-address-list=RFC-3330 log-prefix=DROPv4-RFC-3330
+/ip firewall filter add chain=std_filters action=drop   comment="DROP NOT GLOBALLY ROUTABLE - RFC-3330" disabled=no src-address-list=RFC-3330
+/ip firewall filter add chain=std_filters action=jump   comment="ICMP ANALISYS"             disabled=no jump-target=icmp protocol=icmp
+
+/ip firewall filter add chain=connection_filters action=log     comment="LOG INVALID CONNECTIONS"       connection-state=invalid disabled=no log-prefix=DROPv4-INVALID
+/ip firewall filter add chain=connection_filters action=drop    comment="DROP INVALID CONNECTIONS"      connection-state=invalid disabled=no
+/ip firewall filter add chain=connection_filters action=accept  comment="ACCEPT ESTABLISHED CONNECTIONS"    connection-state=established disabled=no
+/ip firewall filter add chain=connection_filters action=accept  comment="ACCEPT RELATED CONNECTIONS"        connection-state=related disabled=no
+
+/ip firewall filter add action=accept chain=input comment="INPUT DISCOVERY MGMT" disabled=no dst-port=5678 protocol=udp src-port=5678
+
+/ip firewall filter add action=accept chain=input comment="ACCEPT ALL FROM ExternalManagementAllowed ADDRESS LIST" disabled=no src-address-list=ExternalManagementAllowed
+/ip firewall filter add action=accept chain=input comment="ACCEPT ALL FROM CustomerLAN ADDRESS LIST" disabled=no in-interface=ether1 src-address-list=CustomerLAN
+/ip firewall filter add action=accept chain=input comment="ACCEPT ALL FROM CustomerLAN ADDRESS LIST" disabled=no in-interface=ether2 src-address-list=CustomerLAN
+
+/ip firewall filter add action=jump jump-target=std_filters chain=input disabled=no in-interface=WAN_IP_INTERFACE comment="STANDARD FILTERS - INPUT"
+/ip firewall filter add action=jump jump-target=std_filters chain=forward   disabled=no in-interface=WAN_IP_INTERFACE comment="STANDARD FILTERS - FORWARD"
+/ip firewall filter add action=jump jump-target=std_filters chain=input disabled=no in-interface=ether4 comment="STANDARD FILTERS - INPUT (2ndCircuit)"
+/ip firewall filter add action=jump jump-target=std_filters chain=forward   disabled=no in-interface=ether4 comment="STANDARD FILTERS - FORWARD (2ndCircuit) #################"
+
+
+/ip firewall filter add action=jump jump-target=connection_filters  chain=input disabled=no in-interface=WAN_IP_INTERFACE comment="CONNECTION FILTERS - INPUT #################"
+/ip firewall filter add action=jump jump-target=connection_filters  chain=forward   disabled=no in-interface=WAN_IP_INTERFACE comment="CONNECTION FILTERS - FORWARD"
+/ip firewall filter add action=jump jump-target=connection_filters  chain=input disabled=no in-interface=ether4 comment="CONNECTION FILTERS - INPUT (2ndCircuit)"
+/ip firewall filter add action=jump jump-target=connection_filters  chain=forward   disabled=no in-interface=ether4 comment="CONNECTION FILTERS - FORWARD (2ndCircuit)"
+
+/ip firewall filter add action=log chain=input comment="LOG TRAFFIC TO BE DENIED (INPUT)" disabled=no in-interface=WAN_IP_INTERFACE log-prefix=DROPv4-INPUT-DEFAULT
+/ip firewall filter add action=drop chain=input comment="DENY NOT PERMITTED TRAFFIC (INPUT)" disabled=no in-interface=WAN_IP_INTERFACE
+/ip firewall filter add action=log chain=forward comment="LOG TRAFFIC TO BE DENIED (FORWARD)" disabled=no in-interface=WAN_IP_INTERFACE log-prefix=DROPv4-FORWARD-DEFAULT
+/ip firewall filter add action=drop chain=forward comment="DENY NOT PERMITTED TRAFFIC (FORWARD)" disabled=no in-interface=WAN_IP_INTERFACE
+
+/ip firewall filter add action=log chain=input comment="LOG TRAFFIC TO BE DENIED (INPUT - 2ndCircuit)" disabled=no in-interface=ether4 log-prefix=DROPv4-INPUT-DEFAULT-2ndCircuit
+/ip firewall filter add action=drop chain=input comment="DENY NOT PERMITTED TRAFFIC (INPUT - 2ndCircuit)" disabled=no in-interface=ether4
+/ip firewall filter add action=log chain=forward comment="LOG TRAFFIC TO BE DENIED (FORWARD - 2ndCircuit)" disabled=no in-interface=ether4 log-prefix=DROPv4-FORWARD-DEFAULT-2ndCircuit
+/ip firewall filter add action=drop chain=forward comment="DENY NOT PERMITTED TRAFFIC (FORWARD - 2ndCircuit)" disabled=no in-interface=ether4
+
+
+
+# ------------------------------------------------------------------
+# Configurazione IPv4 Service Passthrough (la regola deve essere applicata prima della sezione "CONNECTION FILTERS - INPUT" in ordine di ID (priorità)):
+
+/ip firewall filter add action=accept chain=forward comment="Service xxxxxxx Passthrough" dst-port=XX protocol=PPP in-interface=WAN_IP_INTERFACE disabled=no
+#
+#                                                                    ^^^^^^^                       ^^          ^^^              ^^^^^^^^^^^^^^^^
+#                                                                  nome servizio                  porta       protocollo        interfaccia WAN
+#                                                                                                             (tcp, udp)
+#
+#
+#    NOTA1: Possono essere specificate restrizioni o customizzazioni a livello Protocollare e/o in base a Source e Destination IP.
+#    NOTA2: In caso di restrizione per IP di DESTINAZIONE ricordarsi che nel caso in cui sussista NAT 1:1 tale indirizzo corrisponde a quello PRIVATO (dietro 1:1 NAT).
