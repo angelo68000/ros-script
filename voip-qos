@@ -30,6 +30,7 @@ add action=change-dscp chain=postrouting comment="DSCP Priority" dst-address=1.2
 packet-mark=RTP_Packet passthrough=yes
 
 
+
 /queue tree
 add limit-at=20M max-limit=20M name=Upload parent=pppoe-out1 queue=default
 add limit-at=128k max-limit=128k name=Priority1-Up packet-mark=RTP_Packet parent=Upload priority=1 queue=\
@@ -46,3 +47,27 @@ add name=Priority3-Down packet-mark=no-mark parent=Download priority=3 queue=def
 
 
 
+
+/ip firewall mangle
+add action=mark-connection chain=forward connection-state=new dst-address-list=eutelia dst-port=5060 new-connection-mark=sip-connection passthrough=no protocol=tcp
+add action=mark-connection chain=forward connection-state=established,related,new dst-address-list=eutelia dst-port=5060 new-connection-mark=sip-connection passthrough=no \
+    protocol=udp
+add action=mark-connection chain=forward connection-state=established,related,new dst-address-list=eutelia dst-port=3478 new-connection-mark=stun-connection passthrough=\
+    no protocol=udp
+add action=mark-packet chain=forward connection-mark=sip-connection new-packet-mark=SIP passthrough=no
+add action=mark-connection chain=forward connection-state=established,related,new dst-address-list=eutelia new-connection-mark=rtp-connection passthrough=no protocol=udp \
+    src-port=10000-20000
+add action=mark-packet chain=forward connection-mark=rtp-connection new-packet-mark=RTP passthrough=no
+add action=change-dscp chain=postrouting new-dscp=46 out-interface=bridge1 packet-mark=RTP passthrough=no
+
+
+
+/queue tree
+add max-limit=20M name=upload parent=ether1 queue=default
+add limit-at=2M max-limit=2M name=upload_pri_1 packet-mark=RTP parent=upload priority=1
+add limit-at=2M max-limit=2M name=upload_pri_2 packet-mark=SIP parent=upload priority=2
+add max-limit=16M name=upload_pri_8 packet-mark=no-mark parent=upload queue=default
+add max-limit=50M name=download parent=bridge1 queue=default
+add limit-at=2M max-limit=2M name=download_pri_1 packet-mark=RTP parent=download priority=1 queue=default
+add limit-at=2M max-limit=2M name=download_pri_2 packet-mark=SIP parent=download priority=2 queue=default
+add max-limit=46M name=download_pri_8 packet-mark=no-mark parent=download queue=default
