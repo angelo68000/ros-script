@@ -771,6 +771,51 @@ add action=accept chain="Manage Common Ports" comment=\
     "L2TP UDP Port 4500 (Local Management)" port=4500 protocol=udp
 add action=accept chain=output comment="Section Break" disabled=yes
 
+/system script
+add dont-require-permissions=no name=DownloadSpamhaus owner=admin policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source=\
+    "\
+    \n/tool fetch url=\"http://joshaven.com/spamhaus.rsc\" mode=http;\
+    \n:log info \"Downloaded spamhaus.rsc from Joshaven.com\";\
+    \n"
+add dont-require-permissions=no name=ReplaceSpamhaus owner=admin policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source=\
+    "\
+    \n/ip firewall address-list remove [find where comment=\"SpamHaus\"]\
+    \n/import file-name=spamhaus.rsc;\
+    \n:log info \"Removed old Spamhaus records and imported new list\";\
+    \n"
+add dont-require-permissions=no name=Download_dshield owner=admin policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source=\
+    "\
+    \n/tool fetch url=\"http://joshaven.com/dshield.rsc\" mode=http;\
+    \n:log info \"Downloaded dshield.rsc from Joshaven.com\";\
+    \n"
+add dont-require-permissions=no name=Replace_dshield owner=admin policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source=\
+    "\
+    \n/ip firewall address-list remove [find where comment=\"DShield\"]\
+    \n/import file-name=dshield.rsc;\
+    \n:log info \"Removed old dshield records and imported new list\";\
+    \n"
+add dont-require-permissions=no name=Download_malc0de owner=admin policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source=\
+    "\
+    \n/tool fetch url=\"http://joshaven.com/malc0de.rsc\" mode=http;\
+    \n:log info \"Downloaded malc0de.rsc from Joshaven.com\";\
+    \n"
+add dont-require-permissions=no name=Replace_malc0de owner=admin policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source=\
+    "\
+    \n/ip firewall address-list remove [find where comment=\"malc0de\"]\
+    \n/import file-name=malc0de.rsc;\
+    \n:log info \"Removed old malc0de records and imported new list\";\
+    \n"
+add dont-require-permissions=no name=Download_voip-bl owner=admin policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source=\
+    "\
+    \n/tool fetch url=\"http://joshaven.com/voip-bl.rsc\" mode=http;\
+    \n:log info \"Downloaded voip-bl.rsc from Joshaven.com\";\
+    \n"
+add dont-require-permissions=no name=Replace_voip-bl owner=admin policy=ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon source=\
+    "\
+    \n/ip firewall address-list remove [find where comment=\"VoIP BL\"]\
+    \n/import file-name=voip-bl.rsc;\
+    \n:log info \"Removed old voip-bl records and imported new list\";\
+    \n"
 
 
 
