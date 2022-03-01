@@ -12,3 +12,5 @@ Mental Special Supernatural
 - speed-test -- ROS specific speed test 
 - openvpn -- ROS openvpn server configuration whit certificate 
 - fw-stage2 -- Yet! another firewall for ROS II° Edition
+- FIREWALL-LAST-SEASON (beta)  -- HOT FIREWALL BETA 
+
