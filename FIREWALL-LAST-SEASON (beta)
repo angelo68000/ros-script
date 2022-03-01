@@ -875,4 +875,44 @@ add action=drop chain=prerouting comment="IP Spoofing protection from LAN" \
     dst-address=!255.255.255.255 in-interface-list="LAN Interfaces" \
     src-address=!0.0.0.0 src-address-list=!IP_used_on_LAN
 
+####################### Large ICMP and ICMP fragmentation (Ping of Death) ######################################
+
+/ip firewall raw
+add action=drop chain=prerouting comment="Protecting device crash when size > 1024" packet-size=1025-1600 protocol=icmp disabled=yes
+add action=drop chain=prerouting comment="ICMP large packet attack" packet-size=1601-65535 protocol=icmp
+add action=drop chain=prerouting comment="ICMP fragmentation attack" fragment=yes protocol=icmp
+
+#######################  SYN fragmented attack #######################################################
+
+/ip firewall raw
+add action=drop chain=prerouting comment="SYN fragmented attack" fragment=yes protocol=tcp tcp-flags=syn
+
+#######################  Protected Zone (protect against Teardrop Attack and others)  #####################
+
+/interface list
+add name=fragment_protected_interface
+/ip firewall raw
+add action=drop chain=prerouting comment="Fragment attack Interface Protection" fragment=yes in-interface-list=fragment_protected_interface
+
+######################   IP Options attacks    #################################################
+
+/ip firewall raw
+add action=drop chain=prerouting comment="IP option loose-source-routing" ipv4-options=loose-source-routing
+add action=drop chain=prerouting comment="IP option strict-source-routing" ipv4-options=strict-source-routing
+add action=drop chain=prerouting comment="IP option record-route" ipv4-options=record-route
+add action=drop chain=prerouting comment="IP option router-alert" ipv4-options=router-alert
+add action=drop chain=prerouting comment="IP option timestamp" ipv4-options=timestamp
+add action=drop chain=prerouting comment="IP options left, except IP Stream used by the IGMP protocol" ipv4-options=any protocol=!igmp
+
+#####################  IP Spoofing (prevent LAND Attack and others)   ########################################
+
+/ip firewall raw
+add action=drop chain=prerouting comment="IP Spoofing protection from WAN" in-interface-list=WAN src-address-list=IP_used_on_LAN
+add action=drop chain=prerouting comment="IP Spoofing protection from LAN" in-interface-list=LAN src-address-list=!IP_used_on_LAN \
+    src-address=!0.0.0.0 dst-address=!255.255.255.255
+
+
+
+
+
 
