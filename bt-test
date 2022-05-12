@@ -1,0 +1,48 @@
+#### MAKE ATTENTION 
+#### read this post on mikrotik forum for update bt-server https://forum.mikrotik.com/viewtopic.php?t=104266&start=600#p932261  
+
+
+
+
+:log info "Esecuzione script SpeedTest in corso";
+
+:local luser "MikrotikBtest";
+:local lpass "MikrotikBtest";
+:local Addr  "23.162.144.120";
+
+:local avrRX 0;
+:local avrTX 0;
+
+
+# DOWNLOAD TEST
+:log info "Test velocità in Download";
+:do {/tool
+   bandwidth-test duration=30s user=$luser password=$lpass protocol=tcp address=$Addr direction=receive do={
+     :set $avrRX ("Velocità Download: " . ($"rx-total-average" / 1048576) . "." . ($"rx-total-average" % (1048576) / 1024) . " Mbps" );
+   }
+} on-error={:log error message="RX script failed"}
+
+:delay 2s;
+
+# UPLOAD TEST
+:log info "Test velocità in Upload";
+:do {/tool
+  bandwidth-test duration=30s user=$luser password=$lpass protocol=tcp address=$Addr direction=transmit do={
+     :set $avrTX ("Velocità Upload: " . ($"tx-total-average" / 1048576) . "." . ($"tx-total-average" % (1048576) / 1024) . " Mbps" );
+  }
+} on-error={:log error message="TX script failed"}
+# PING TEST
+:local avgping
+
+/tool flood-ping $Addr count=1 size=56 do={
+:set avgping ($"avg-rtt");
+}
+:if ($avgping > 10) do={
+$avgping
+}
+
+
+:log info message=$avrRX;
+:log info message=$avrTX;
+:log info message=$avgping;
+:log info "-------- Fine Test ------------";
