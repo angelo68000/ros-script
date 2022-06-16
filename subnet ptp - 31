@@ -1,0 +1,6 @@
+Mikrotik mask 31 bits Subnet in WAN
+
+
+Configure it this way:
+/ip address add address=x.x.x.61/32 network=x.x.x.60 interface=ether1
+/ip route add gateway=x.x.x.60
