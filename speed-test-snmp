@@ -1,0 +1,89 @@
+############  PLEASE READ INSTRUCTION ######################
+
+1) create this script in Mikrotik called speed-test
+############################################################
+
+:local txc
+:local txcA
+:local txcB
+:local txcC
+
+:local rxc
+:local rxcA
+:local rxcB
+:local rxcC
+
+:local rxta
+:local rxtaA
+:local rxtaB
+:local rxtaC
+
+:local txta
+:local txtaA
+:local txtaB
+:local txtaC
+
+/tool bandwidth-test user=admin password=###### protocol=tcp address=########### direction=both duration=00:00:20 do={
+
+:set txcA ($"tx-current" / 1000)
+:set txcB ($txcA / 1000 * 1000)
+:set txcC ($txcA - $txcB)
+:set txcB ($txcB / 1000)
+:set txc "$txcB.$txcC"
+
+:set rxcA ($"rx-current" / 1000)
+:set rxcB ($rxcA / 1000 * 1000)
+:set rxcC ($rxcA - $rxcB)
+:set rxcB ($rxcB / 1000)
+:set rxc "$rxcB.$rxcC"
+
+:set rxtaA ($"rx-total-average" / 1000)
+:set rxtaB ($rxtaA / 1000 * 1000)
+:set rxtaC ($rxtaA - $rxtaB)
+:set rxtaB ($rxtaB / 1000)
+:set rxta "$rxtaB.$rxtaC"
+
+:set txtaA ($"tx-total-average" / 1000)
+:set txtaB ($txtaA / 1000 * 1000)
+:set txtaC ($txtaA - $txtaB)
+:set txtaB ($txtaB / 1000)
+:set txta "$txtaB.$txtaC"
+
+}
+
+#:log warning "rxta:"
+#:log warning ($rxtaB)
+#:log warning "txcB:"
+#:log warning ($txcB)
+
+/queue simple set [find comment="bwRX"] name=($rxtaB)
+/queue simple set [find comment="bwTX"] name=($txcB)
+
+###################################################
+
+2) create 2 simple queue DISABLED
+
+/queue simple
+add comment=bwTX disabled=yes target=""
+add comment=bwRX disabled=yes target=""
+
+###################################################
+
+3) create a scheduler 
+
+/system scheduler
+add interval=1h name=speed-test on-event=speed-test policy=\
+    ftp,reboot,read,write,policy,test,password,sniff,sensitive,romon \
+    start-date=oct/02/2022 start-time=08:28:10
+    
+###################################################
+
+4) read the oid of the queue 
+
+/queue simple print oid
+
+and grab the "name=" oid from each of the 2x queues, and plug that into your SNMP graphing tool, i use ZABBIX
+
+#####################################################
+
+
