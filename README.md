@@ -14,4 +14,4 @@ Mental Special Supernatural
 - fw-stage2 -- Yet! another firewall for ROS II° Edition
 - FIREWALL-LAST-SEASON (beta)  -- HOT FIREWALL BETA 
 - bt-test -- ROS script for bt-test
-
+- speed-test-snmp  -- Zabbix graph for speed-test
