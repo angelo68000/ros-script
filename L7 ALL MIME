@@ -1,0 +1,118 @@
+/ip firewall layer7-protocol
+add comment="" name="Extension \" .exe \"" regexp="\\.(exe)"
+add comment="" name="Extension \" .rar \"" regexp="\\.(rar)"
+add comment="" name="Extension \" .zip \"" regexp="\\.(zip)"
+add comment="" name="Extension \" .7z \"" regexp="\\.(7z)"
+add comment="" name="Extension \" .cab \"" regexp="\\.(cab)"
+add comment="" name="Extension \" .asf \"" regexp="\\.(asf)"
+add comment="" name="Extension \" .mov \"" regexp="\\.(mov)"
+add comment="" name="Extension \" .wmv \"" regexp="\\.(wmv)"
+add comment="" name="Extension \" .mpg \"" regexp="\\.(mpg)"
+add comment="" name="Extension \" .mpeg \"" regexp="\\.(mpeg)"
+add comment="" name="Extension \" .mkv \"" regexp="\\.(mkv)"
+add comment="" name="Extension \" .avi \"" regexp="\\.(avi)"
+add comment="" name="Extension \" .flv \"" regexp="\\.(flv)"
+add comment="" name="Extension \" .pdf \"" regexp="\\.(pdf)"
+add comment="" name="Extension \" .wav \"" regexp="\\.(wav)"
+add comment="" name="Extension \" .rm \"" regexp="\\.(rm)"
+add comment="" name="Extension \" .mp3 \"" regexp="\\.(mp3)"
+add comment="" name="Extension \" .mp4 \"" regexp="\\.(mp4)"
+add comment="" name="Extension \" .ram \"" regexp="\\.(ram)"
+add comment="" name="Extension \" .rmvb \"" regexp="\\.(rmvb)"
+add comment="" name="Extension \" .dat \"" regexp="\\.(dat)"
+add comment="" name="Extension \" .daa \"" regexp="\\.(daa)"
+add comment="" name="Extension \" .iso \"" regexp="\\.(iso)"
+add comment="" name="Extension \" .nrg \"" regexp="\\.(nrg)"
+add comment="" name="Extension \" .bin \"" regexp="\\.(bin)"
+add comment="" name="Extension \" .vcd \"" regexp="\\.(vcd)"
+
+/ip firewall mangle
+add action=mark-connection chain=prerouting comment="7z DOWNS" disabled=no layer7-protocol="Extension \" .7z \"" new-connection-mark="7z DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="7z DOWNS" disabled=no new-packet-mark=7z passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="asf DOWNS" disabled=no layer7-protocol="Extension \" .asf \"" new-connection-mark="asf DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="asf DOWNS" disabled=no new-packet-mark=asf passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="avi DOWNS" disabled=no layer7-protocol="Extension \" .avi \"" new-connection-mark="avi DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="avi DOWNS" disabled=no new-packet-mark=avi passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="bin DOWNS" disabled=no layer7-protocol="Extension \" .bin \"" new-connection-mark="bin DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="bin DOWNS" disabled=no new-packet-mark=bin passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="flv DOWNS" disabled=no layer7-protocol="Extension \" .flv \"" new-connection-mark="flv DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="flv DOWNS" disabled=no new-packet-mark=flv passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="iso DOWNS" disabled=no layer7-protocol="Extension \" .iso \"" new-connection-mark="iso DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark= "iso DOWNS" disabled=no new-packet-mark=iso passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="mkv DOWNS" disabled=no layer7-protocol="Extension \" .mkv \"" new-connection-mark="mkv DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="mkv DOWNS" disabled=no new-packet-mark=mkv passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="exe DOWNS" disabled=no layer7-protocol="Extension \" .exe \"" new-connection-mark="exe DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="exe DOWNS" disabled=no new-packet-mark=exe passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="mov DOWNS" disabled=no layer7-protocol="Extension \" .mov \"" new-connection-mark="mov DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="mov DOWNS" disabled=no new-packet-mark=mov passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="mp3 DOWNS" disabled=no layer7-protocol="Extension \" .mp3 \"" new-connection-mark="mp3 DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="mp3 DOWNS" disabled=no new-packet-mark=mp3 passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="mp4 DOWNS" disabled=no layer7-protocol="Extension \" .mp4 \"" new-connection-mark="mp4 DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="mp4 DOWNS" disabled=no new-packet-mark=mp4 passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="mpeg DOWNS" disabled=no layer7-protocol="Extension \" .mpeg \"" new-connection-mark="mpeg DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="mpeg DOWNS" disabled=no new-packet-mark=mpeg passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="mpg DOWNS" disabled=no layer7-protocol="Extension \" .mpg \"" new-connection-mark="mpg DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="mpg DOWNS" disabled=no new-packet-mark=mpg passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="nrg DOWNS" disabled=no layer7-protocol="Extension \" .nrg \"" new-connection-mark="nrg DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="nrg DOWNS" disabled=no new-packet-mark=nrg passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="pdf DOWNS" disabled=no layer7-protocol="Extension \" .pdf \"" new-connection-mark="pdf DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="pdf DOWNS" disabled=no new-packet-mark=pdf passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="ram DOWNS" disabled=no layer7-protocol="Extension \" .ram \"" new-connection-mark="ram DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="ram DOWNS" disabled=no new-packet-mark=ram passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="rar DOWNS" disabled=no layer7-protocol="Extension \" .rar \"" new-connection-mark="rar DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="rar DOWNS" disabled=no new-packet-mark=rar passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="rm DOWNS" disabled=no layer7-protocol="Extension \" .rm \"" new-connection-mark="rm DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="rm DOWNS" disabled=no new-packet-mark=rm passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="rmvb DOWNS" disabled=no layer7-protocol="Extension \" .rmvb \"" new-connection-mark="rmvb DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="rmvb DOWNS" disabled=no new-packet-mark=rmvb passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="wav DOWNS" disabled=no layer7-protocol="Extension \" .wav \"" new-connection-mark="wav DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="wav DOWNS" disabled=no new-packet-mark=wav passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="wma DOWNS" disabled=no layer7-protocol="Extension \" .wma \"" new-connection-mark="wma DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="wma DOWNS" disabled=no new-packet-mark=wma passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="wmv DOWNS" disabled=no layer7-protocol="Extension \" .wmv \"" new-connection-mark="wmv DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="wmv DOWNS" disabled=no new-packet-mark=wmv passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="zip DOWNS" disabled=no layer7-protocol="Extension \" .zip \"" new-connection-mark="zip DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="zip DOWNS" disabled=no new-packet-mark=zip passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="youtube DOWNS" disabled=no layer7-protocol="YouTube " new-connection-mark="youtube DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="youtube DOWNS" disabled=no new-packet-mark=youtube passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="daa DOWNS" disabled=no layer7-protocol="Extension \" .daa \"" new-connection-mark="daa DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="daa DOWNS" disabled=no new-packet-mark=daa passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="dat DOWNS" disabled=no layer7-protocol="Extension \" .dat \"" new-connection-mark="dat DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="dat DOWNS" disabled=no new-packet-mark=dat passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="vcd DOWNS" disabled=no layer7-protocol="Extension \" .vcd \"" new-connection-mark="vcd DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="vcd DOWNS" disabled=no new-packet-mark=vcd passthrough=no protocol=tcp
+
+add action=mark-connection chain=prerouting comment="cab DOWNS" disabled=no layer7-protocol="Extension \" .cab \"" new-connection-mark="cab DOWNS" passthrough=yes protocol=tcp
+add action=mark-packet chain=postrouting comment="" connection-mark="cab DOWNS" disabled=no new-packet-mark=cab passthrough=no protocol=tcp
+
+/queue type
+set default-small kind=pcq name=default-small pcq-classifier=src-address,dst-address,src-port,dst-port pcq-limit=50 pcq-rate=0 pcq-total-limit=2000
+
+/queue tree
+add burst-limit=0 burst-threshold=0 burst-time=0s disabled=no max-limit=1M name=Download_queue packet-mark="exe,flv,rar,zip,7z,bin,mp3,mp4,wav,pdf,asf,avi,mov,wmv,mpg,mpeg,rm,iso,nrg,daa,vcd,cab,3gp,ram,rmvb,mkv,wma,youtube" parent=global-out priority=8 queue=default-small
