@@ -1,21 +1,28 @@
+# 1. Rimuovi eventuali vecchie configurazioni con lo stesso nome
+/ip firewall layer7-protocol remove [find name=video]
 
-/ip firewall layer7-protocol add name=video regexp="^.+(videoplayback|watch|video|youtube).*\\\$"
+# 2. Layer 7 Protocol (Ottimizzato)
+/ip firewall layer7-protocol add name=video regexp="^.+(googlevideo|youtube|videoplayback).+"
 
-#DNS Address List to IP
+# 3. DNS Address List (Nota: per una gestione stabile di YouTube si consiglia l'uso di DNS statici o script di aggiornamento dinamico)
 /ip firewall address-list 
 add address=googlevideo.com list=Video
 add address=youtube.com list=Video
 
+# 4. Mangle Rules Corrette e Pulite
 /ip firewall mangle
-add action=mark-connection chain=prerouting comment="Video Address List" \    disabled=yes dst-address-list=Video new-connection-mark=video-connection \    passthrough=yes
-add action=mark-connection chain=prerouting comment="Video L7" disabled=yes \    layer7-protocol=video new-connection-mark=video-connection passthrough=yes
-add action=mark-packet chain=prerouting connection-mark=video-connection \    disabled=yes new-packet-mark=video-packet passthrough=no
-add action=mark-connection chain=prerouting comment=Web disabled=yes dst-port=\    80,8080,20,21,443 new-connection-mark=web-connection passthrough=yes \    protocol=tcp
-add action=mark-connection chain=prerouting disabled=yes dst-port=\    80,8080,20,21,443 new-connection-mark=web-connection passthrough=yes \    protocol=udp
-add action=mark-connection chain=prerouting comment="Download more than 3Mb" \    connection-bytes=3000001-0 disabled=yes dst-port=80,8080,20,21,443 \    new-connection-mark=3M-connection passthrough=yes protocol=tcp
-add action=mark-connection chain=prerouting connection-bytes=3000001-0 disabled=\    yes dst-port=80,8080,20,21,443 new-connection-mark=3M-connection \    passthrough=yes protocol=udp
-add action=mark-packet chain=prerouting connection-mark=3M-connection disabled=\    yes new-packet-mark=3M-packet passthrough=no
-add action=mark-packet chain=prerouting connection-mark=web-packet disabled=yes \    new-packet-mark=web-packet passthrough=no
-add action=mark-connection chain=prerouting comment=Others disabled=yes \    dst-port=1000-65535 new-connection-mark=others-connection passthrough=yes \    protocol=tcp
-add action=mark-connection chain=prerouting disabled=yes dst-port=1000-65535 \    new-connection-mark=others-connection passthrough=yes protocol=udp
-add action=mark-packet chain=prerouting connection-mark=others-connection \    disabled=yes new-packet-mark=others-packet passthrough=no .
+add action=mark-connection chain=prerouting comment="Video Address List" disabled=yes dst-address-list=Video new-connection-mark=video-connection passthrough=yes
+add action=mark-connection chain=prerouting comment="Video L7" disabled=yes layer7-protocol=video new-connection-mark=video-connection passthrough=yes
+add action=mark-packet chain=prerouting connection-mark=video-connection disabled=yes new-packet-mark=video-packet passthrough=no
+
+add action=mark-connection chain=prerouting comment="Web TCP" disabled=yes dst-port=80,8080,443 new-connection-mark=web-connection passthrough=yes protocol=tcp
+add action=mark-connection chain=prerouting comment="Web UDP" disabled=yes dst-port=80,8080,443 new-connection-mark=web-connection passthrough=yes protocol=udp
+add action=mark-packet chain=prerouting connection-mark=web-connection disabled=yes new-packet-mark=web-packet passthrough=no
+
+add action=mark-connection chain=prerouting comment="Download more than 3Mb" connection-bytes=3000001-0 disabled=yes dst-port=80,8080,443 new-connection-mark=3M-connection passthrough=yes protocol=tcp
+add action=mark-connection chain=prerouting connection-bytes=3000001-0 disabled=yes dst-port=80,8080,443 new-connection-mark=3M-connection passthrough=yes protocol=udp
+add action=mark-packet chain=prerouting connection-mark=3M-connection disabled=yes new-packet-mark=3M-packet passthrough=no
+
+add action=mark-connection chain=prerouting comment="Others TCP" disabled=yes dst-port=1000-65535 new-connection-mark=others-connection passthrough=yes protocol=tcp
+add action=mark-connection chain=prerouting comment="Others UDP" disabled=yes dst-port=1000-65535 new-connection-mark=others-connection passthrough=yes protocol=udp
+add action=mark-packet chain=prerouting connection-mark=others-connection disabled=yes new-packet-mark=others-packet passthrough=no
