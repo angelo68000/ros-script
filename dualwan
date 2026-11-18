@@ -1,23 +1,30 @@
 /ip firewall mangle
-add chain=input in-interface=WAN1 action=mark-connection new-connection-mark=WAN1_conn
-add chain=input in-interface=WAN2 action=mark-connection new-connection-mark=WAN2_conn
+# 1. Marcatura connessioni in ingresso sulle WAN (per il traffico diretto al router)
+add chain=input in-interface=WAN1 action=mark-connection new-connection-mark=WAN1_conn passthrough=yes
+add chain=input in-interface=WAN2 action=mark-connection new-connection-mark=WAN2_conn passthrough=yes
 
-add chain=output connection-mark=WAN1_conn action=mark-routing new-routing-mark=to_WAN1
-add chain=output connection-mark=WAN2_conn action=mark-routing new-routing-mark=to_WAN2
+# 2. Risposta del router (Output) attraverso la stessa WAN da cui è arrivata la richiesta
+add chain=output connection-mark=WAN1_conn action=mark-routing new-routing-mark=to_WAN1 passthrough=no
+add chain=output connection-mark=WAN2_conn action=mark-routing new-routing-mark=to_WAN2 passthrough=no
 
+# 3. Salva il traffico locale/subnet in modo che non venga bilanciato via PCC
 add chain=prerouting dst-address=192.168.10.0/24 action=accept in-interface=wlan2
 add chain=prerouting dst-address=192.168.11.0/24 action=accept in-interface=wlan2
 
-add chain=prerouting dst-address-type=!local in-interface=wlan2 per-connection-classifier=both-addresses­-and-ports:2/0 action=mark-connection new-connection-mark=WAN1_conn passthrough=yes
-add chain=prerouting dst-address-type=!local in-interface=wlan2 per-connection-classifier=both-addresses­-and-ports:2/1 action=mark-connection new-connection-mark=WAN2_conn passthrough=yes
+# 4. Regole PCC (Bilanciamento 50/50 sul traffico proveniente da wlan2)
+add chain=prerouting dst-address-type=!local in-interface=wlan2 per-connection-classifier=both-addresses-and-ports:2/0 action=mark-connection new-connection-mark=WAN1_conn passthrough=yes
+add chain=prerouting dst-address-type=!local in-interface=wlan2 per-connection-classifier=both-addresses-and-ports:2/1 action=mark-connection new-connection-mark=WAN2_conn passthrough=yes
 
-add chain=prerouting connection-mark=WAN1_conn in-interface=wlan2 action=mark-routing new-routing-mark=to_WAN1
-add chain=prerouting connection-mark=WAN2_conn in-interface=wlan2 action=mark-routing new-routing-mark=to_WAN2
+# 5. Assegnazione del routing-mark in base alla connessione marcata
+add chain=prerouting connection-mark=WAN1_conn in-interface=wlan2 action=mark-routing new-routing-mark=to_WAN1 passthrough=no
+add chain=prerouting connection-mark=WAN2_conn in-interface=wlan2 action=mark-routing new-routing-mark=to_WAN2 passthrough=no
 
 /ip route
+# Rotte marcate per il traffico PCC
 add dst-address=0.0.0.0/0 gateway=192.168.10.1 routing-mark=to_WAN1 check-gateway=ping
 add dst-address=0.0.0.0/0 gateway=192.168.11.1 routing-mark=to_WAN2 check-gateway=ping
 
+# Rotte di default globali per il router e failover base
 add dst-address=0.0.0.0/0 gateway=192.168.10.1 distance=1 check-gateway=ping
 add dst-address=0.0.0.0/0 gateway=192.168.11.1 distance=2 check-gateway=ping
 
