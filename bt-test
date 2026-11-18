@@ -1,8 +1,8 @@
-#### MAKE ATTENTION 
-#### read this post on mikrotik forum for update bt-server https://forum.mikrotik.com/viewtopic.php?t=104266&start=600#p932261  
-
-
-
+# ==========================================
+# ATTENZIONE: 
+# Assicurati di leggere il forum MikroTik per aggiornamenti sul server di test:
+# https://forum.mikrotik.com/viewtopic.php?t=104266&start=600#p932261
+# ==========================================
 
 :log info "Esecuzione script SpeedTest in corso";
 
@@ -10,39 +10,47 @@
 :local lpass "MikrotikBtest";
 :local Addr  "23.162.144.120";
 
-:local avrRX 0;
-:local avrTX 0;
-
+:local avrRX "Velocità Download: N/D";
+:local avrTX "Velocità Upload: N/D";
+:local avgping 0;
 
 # DOWNLOAD TEST
 :log info "Test velocità in Download";
-:do {/tool
-   bandwidth-test duration=30s user=$luser password=$lpass protocol=tcp address=$Addr direction=receive do={
-     :set $avrRX ("Velocità Download: " . ($"rx-total-average" / 1048576) . "." . ($"rx-total-average" % (1048576) / 1024) . " Mbps" );
+:do {
+   /tool bandwidth-test duration=30s user=$luser password=$lpass protocol=tcp address=$Addr direction=receive do={
+     :set avrRX ("Velocità Download: " . (($"rx-total-average" / 1048576)) . "." . ((($"rx-total-average" % 1048576) * 100) / 1048576) . " Mbps");
    }
-} on-error={:log error message="RX script failed"}
+} on-error={
+   :log error "RX script failed";
+}
 
 :delay 2s;
 
 # UPLOAD TEST
 :log info "Test velocità in Upload";
-:do {/tool
-  bandwidth-test duration=30s user=$luser password=$lpass protocol=tcp address=$Addr direction=transmit do={
-     :set $avrTX ("Velocità Upload: " . ($"tx-total-average" / 1048576) . "." . ($"tx-total-average" % (1048576) / 1024) . " Mbps" );
-  }
-} on-error={:log error message="TX script failed"}
+:do {
+   /tool bandwidth-test duration=30s user=$luser password=$lpass protocol=tcp address=$Addr direction=transmit do={
+     :set avrTX ("Velocità Upload: " . (($"tx-total-average" / 1048576)) . "." . ((($"tx-total-average" % 1048576) * 100) / 1048576) . " Mbps");
+   }
+} on-error={
+   :log error "TX script failed";
+}
+
+:delay 2s;
+
 # PING TEST
-:local avgping
-
-/tool flood-ping $Addr count=1 size=56 do={
-:set avgping ($"avg-rtt");
+:do {
+    /tool ping $Addr count=5 do={
+        :if ($passed > 0) do={
+            :set avgping $"avg-rtt";
+        }
+    }
+} on-error={
+    :log error "Ping test failed";
 }
-:if ($avgping > 10) do={
-$avgping
-}
 
-
-:log info message=$avrRX;
-:log info message=$avrTX;
-:log info message=$avgping;
+# LOG RISULTATI FINALI
+:log info $avrRX;
+:log info $avrTX;
+:log info ("Ping medio: " . $avgping . "ms");
 :log info "-------- Fine Test ------------";
