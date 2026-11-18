@@ -1,4 +1,99 @@
+# =====================================================================
+# MonitoredIP (revisione corretta) - log monitor per RouterOS v6/v7
+#
+# INSTALLAZIONE
+#   /system script add name=MonitoredIP policy=read,write,test source=[contenuto di questo file]
+#   /system scheduler add name=MonitoredIP interval=5m on-event=MonitoredIP
+#   (il nome dello scheduler deve coincidere con scheduleName qui sotto;
+#    serve anche /tool e-mail configurato)
+#
+# FUNZIONAMENTO
+#   Cerca nel log i messaggi con prefisso BLACKLIST- (generati da fw-stage.rsc),
+#   invia per mail solo quelli nuovi e salva come "segnalibro" l'ultima voce
+#   letta (id + messaggio) nel commento dello scheduler. Non dipende dal
+#   formato della data, quindi funziona uguale su v6 e v7.
+# =====================================================================
+
 # BEGIN SETUP
+:local scheduleName "MonitoredIP"
+:local emailAddress "user@example.com"
+:local logPattern "BLACKLIST-"
+# espressioni regolari da ignorare (array vuoto = nessuna esclusione)
+:local removeThese [:toarray ""]
+# END SETUP
+
+# esce con errore se lo scheduler non esiste
+:local schedId [/system scheduler find name=$scheduleName]
+:if ([:len $schedId] = 0) do={
+    /log warning "[LOGMON] ERROR: scheduler $scheduleName non esiste. Crealo e allinea scheduleName."
+    :error "[LOGMON] scheduler non trovato"
+}
+
+# segnalibro salvato nel commento dello scheduler: "<id>|<messaggio>"
+:local state [/system scheduler get $schedId comment]
+:local lastId ""
+:local lastMsg ""
+:local sep [:find $state "|"]
+:if ([:typeof $sep] = "num") do={
+    :set lastId [:pick $state 0 $sep]
+    :set lastMsg [:pick $state ($sep + 1) [:len $state]]
+}
+
+:local entries [/log find where message~$logPattern]
+:if ([:len $entries] = 0) do={ :return true }
+
+# il segnalibro esiste ancora nel log? (se no: riavvio o log ruotato -> invio tutto)
+:local found false
+:if ([:len $lastId] > 0) do={
+    :foreach i in=$entries do={
+        :if (("$i" = $lastId) && ([/log get $i message] = $lastMsg)) do={ :set found true }
+    }
+}
+
+# se il segnalibro non c'e', si parte subito a raccogliere
+:local sending (!$found)
+:local output ""
+:local count 0
+:local newLastId ""
+:local newLastMsg ""
+
+:foreach i in=$entries do={
+    :local msg [/log get $i message]
+    :local skip false
+    :foreach j in=$removeThese do={
+        :if ($msg ~ $j) do={ :set skip true }
+    }
+    :if (($sending = true) && ($skip = false)) do={
+        :set output ($output . [/log get $i time] . " " . $msg . "\r\n")
+        :set count ($count + 1)
+    }
+    # dopo aver superato il segnalibro si inizia a raccogliere dalla voce successiva
+    :if (($found = true) && ("$i" = $lastId) && ($msg = $lastMsg)) do={ :set sending true }
+    :set newLastId "$i"
+    :set newLastMsg $msg
+}
+
+# nessuna voce nuova da inviare: aggiorna solo il segnalibro
+:if ($count = 0) do={
+    /system scheduler set $schedId comment=($newLastId . "|" . $newLastMsg)
+    :return true
+}
+
+# invio mail; il segnalibro avanza solo se l'invio non genera errori
+:local sent true
+:local subject ("MikroTik alert " . [/system identity get name] . ": " . $count . " nuovi log")
+:do {
+    /tool e-mail send to=$emailAddress subject=$subject body=$output
+} on-error={
+    :set sent false
+}
+
+:if ($sent = true) do={
+    /system scheduler set $schedId comment=($newLastId . "|" . $newLastMsg)
+    /log info "[LOGMON] $count nuovi log, mail inviata a $emailAddress"
+} else={
+    /log warning "[LOGMON] invio mail fallito, riprovo alla prossima esecuzione"
+}# BEGIN SETUP
 :local scheduleName "MonitoredIP"
 :local emailAddress "angelo68000@gmail.com"
 :local startBuf [:toarray [/log find message~"ssh_stage1-8291" || message~"ssh_stage1-" || message~"ssh_stage1" ]]
