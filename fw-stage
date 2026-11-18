@@ -1,110 +1,86 @@
+# =====================================================================
+# fw-stage (revisione corretta) - RouterOS v6/v7, solo IPv4
+#
+# PRIMA DI APPLICARE
+#  1) Entra in Safe Mode (Winbox: pulsante "Safe Mode"; terminale: Ctrl+X),
+#     cosi' se ti chiudi fuori il router torna indietro da solo.
+#  2) Servono le interface list "LAN" e "WAN" (default config le ha).
+#  3) Se hai IP fidati, mettili nella address list "Remote_Access":
+#       /ip firewall address-list add list=Remote_Access address=1.2.3.4
+#  4) Questo file va applicato su /ip firewall filter VUOTO. Se ci sono
+#     regole vecchie, rimuovile prima (le nuove si accodano in fondo):
+#       /ip firewall filter remove [find]
+#
+# LOG: viene loggato solo il momento in cui un IP finisce in blacklist
+# (prefisso BLACKLIST-22 / BLACKLIST-8291), cosi' il buffer log non si
+# riempie e lo script MonitoredIP invia una mail per ogni nuovo blocco.
+# =====================================================================
+
 /ip firewall filter
-add action=drop chain=input comment="drop ssh brute forcers" dst-port=22 \
-    log=yes log-prefix=DROP-22 protocol=tcp src-address-list=ssh_blacklist
-add action=add-src-to-address-list address-list=ssh_blacklist \
-    address-list-timeout=1w3d chain=input connection-state=new dst-port=22 \
-    protocol=tcp src-address-list=ssh_stage3
-add action=add-src-to-address-list address-list=ssh_stage3 \
-    address-list-timeout=1m chain=input connection-state=new dst-port=22 \
-    protocol=tcp src-address-list=ssh_stage2
-add action=add-src-to-address-list address-list=ssh_stage2 \
-    address-list-timeout=1m chain=input connection-state=new dst-port=22 \
-    protocol=tcp src-address-list=ssh_stage1
-add action=add-src-to-address-list address-list=ssh_stage1 \
-    address-list-timeout=1m chain=input connection-state=new dst-port=22 \
-    protocol=tcp
-add action=drop chain=input comment="drop ssh brute forcers" dst-port=8291 \
-    log=yes log-prefix=DROP-8291 protocol=tcp src-address-list=ssh_blacklist
-add action=add-src-to-address-list address-list=ssh_blacklist \
-    address-list-timeout=1w3d chain=input connection-state=new dst-port=8291 \
-    protocol=tcp src-address-list=ssh_stage3
-add action=add-src-to-address-list address-list=ssh_stage3 \
-    address-list-timeout=1m chain=input connection-state=new dst-port=8291 \
-    protocol=tcp src-address-list=ssh_stage2
-add action=add-src-to-address-list address-list=ssh_stage2 \
-    address-list-timeout=1m chain=input connection-state=new dst-port=8291 \
-    protocol=tcp src-address-list=ssh_stage1
-add action=add-src-to-address-list address-list=ssh_stage1 \
-    address-list-timeout=1m chain=input connection-state=new dst-port=8291 \
-    log=yes log-prefix=ssh_stage1-8291 protocol=tcp
-add action=add-src-to-address-list address-list="port scanners" \
-    address-list-timeout=2w chain=input comment="Port scanners to list " \
-    protocol=tcp psd=21,3s,3,1
-add action=add-src-to-address-list address-list="port scanners" \
-    address-list-timeout=2w chain=input comment="NMAP FIN Stealth scan" \
-    protocol=tcp tcp-flags=fin,!syn,!rst,!psh,!ack,!urg
-add action=add-src-to-address-list address-list="port scanners" \
-    address-list-timeout=2w chain=input comment="SYN/FIN scan" protocol=tcp \
-    tcp-flags=fin,syn
-add action=add-src-to-address-list address-list="port scanners" \
-    address-list-timeout=2w chain=input comment="SYN/RST scan" protocol=tcp \
-    tcp-flags=syn,rst
-add action=add-src-to-address-list address-list="port scanners" \
-    address-list-timeout=2w chain=input comment="FIN/PSH/URG scan" protocol=\
-    tcp tcp-flags=fin,psh,urg,!syn,!rst,!ack
-add action=add-src-to-address-list address-list="port scanners" \
-    address-list-timeout=2w chain=input comment="ALL/ALL scan" protocol=tcp \
-    tcp-flags=fin,syn,rst,psh,ack,urg
-add action=add-src-to-address-list address-list="port scanners" \
-    address-list-timeout=2w chain=input comment="NMAP NULL scan" protocol=tcp \
-    tcp-flags=!fin,!syn,!rst,!psh,!ack,!urg
-add action=drop chain=input comment="dropping port scanners" \
-    src-address-list="port scanners"
-add action=add-src-to-address-list address-list="port scanners" \
-    address-list-timeout=2w chain=forward comment="Port scanners to list " \
-    protocol=tcp psd=21,3s,3,1
-add action=add-src-to-address-list address-list="port scanners" \
-    address-list-timeout=2w chain=forward comment="NMAP FIN Stealth scan" \
-    protocol=tcp tcp-flags=fin,!syn,!rst,!psh,!ack,!urg
-add action=add-src-to-address-list address-list="port scanners" \
-    address-list-timeout=2w chain=forward comment="SYN/FIN scan" protocol=tcp \
-    tcp-flags=fin,syn
-add action=add-src-to-address-list address-list="port scanners" \
-    address-list-timeout=2w chain=forward comment="SYN/RST scan" protocol=tcp \
-    tcp-flags=syn,rst
-add action=add-src-to-address-list address-list="port scanners" \
-    address-list-timeout=2w chain=forward comment="FIN/PSH/URG scan" \
-    protocol=tcp tcp-flags=fin,psh,urg,!syn,!rst,!ack
-add action=add-src-to-address-list address-list="port scanners" \
-    address-list-timeout=2w chain=forward comment="ALL/ALL scan" protocol=tcp \
-    tcp-flags=fin,syn,rst,psh,ack,urg
-add action=add-src-to-address-list address-list="port scanners" \
-    address-list-timeout=2w chain=forward comment="NMAP NULL scan" protocol=\
-    tcp tcp-flags=!fin,!syn,!rst,!psh,!ack,!urg
-add action=drop chain=forward comment="dropping port scanners" \
-    src-address-list="port scanners"
-add action=fasttrack-connection chain=forward comment="defconf: fasttrack" \
-    connection-state=established,related
-add action=accept chain=forward comment=\
-    "defconf: accept established,related, untracked" connection-state=\
-    established,related,untracked
-add action=drop chain=forward comment="defconf: drop invalid" \
-    connection-state=invalid
-add action=drop chain=forward comment=\
-    "defconf: drop all from WAN not DSTNATed" connection-nat-state=!dstnat \
-    connection-state=new in-interface-list=WAN
-add action=drop chain=forward
-add action=jump chain=input comment="Jump for icmp input flow" jump-target=\
-    ICMP protocol=icmp
-add action=accept chain=input comment=\
-    "defconf: accept established,related,untracked" connection-state=\
-    established,related,untracked
-add action=accept chain=input src-address-list=Remote_Access
-add action=drop chain=input comment="defconf: drop invalid" connection-state=\
-    invalid log=yes log-prefix="defconf: drop invalid"
-add action=jump chain=forward comment="Jump for icmp forward flow" \
-    jump-target=ICMP protocol=icmp
-add action=accept chain=ICMP comment=\
-    "Echo request - Avoiding Ping Flood, adjust the limit as needed" \
-    icmp-options=8:0 limit=2,5 protocol=icmp
-add action=accept chain=ICMP comment="Echo reply" icmp-options=0:0 protocol=\
-    icmp
-add action=accept chain=ICMP comment="Time Exceeded" icmp-options=11:0 \
-    protocol=icmp
-add action=accept chain=ICMP comment="Destination unreachable" icmp-options=\
-    3:0-1 protocol=icmp
-add action=accept chain=ICMP comment=PMTUD icmp-options=3:4 protocol=icmp
-add action=drop chain=ICMP comment="Drop to the other ICMPs" log=yes \
-    log-prefix="Drop to the other ICMPs" protocol=icmp
-add action=jump chain=output comment="Jump for icmp output" jump-target=ICMP \
-    protocol=icmp
+
+# ------------------------------ INPUT --------------------------------
+add chain=input action=accept src-address-list=Remote_Access comment="input: whitelist Remote_Access (prima di ogni blocco)"
+add chain=input action=accept connection-state=established,related,untracked comment="input: accept established,related,untracked"
+add chain=input action=accept in-interface-list=LAN comment="input: accept da LAN"
+
+# Port scanner: drop + rilevamento (il rilevamento sta PRIMA del drop invalid,
+# altrimenti i pacchetti NULL/FIN/XMAS verrebbero scartati come invalid senza essere contati)
+add chain=input action=drop in-interface-list=WAN src-address-list="port scanners" comment="input: drop port scanners"
+add chain=input action=add-src-to-address-list address-list="port scanners" address-list-timeout=2w in-interface-list=WAN protocol=tcp psd=21,3s,3,1 comment="input: port scan (psd)"
+add chain=input action=add-src-to-address-list address-list="port scanners" address-list-timeout=2w in-interface-list=WAN protocol=tcp tcp-flags=fin,!syn,!rst,!psh,!ack,!urg comment="input: NMAP FIN Stealth scan"
+add chain=input action=add-src-to-address-list address-list="port scanners" address-list-timeout=2w in-interface-list=WAN protocol=tcp tcp-flags=fin,syn comment="input: SYN/FIN scan"
+add chain=input action=add-src-to-address-list address-list="port scanners" address-list-timeout=2w in-interface-list=WAN protocol=tcp tcp-flags=syn,rst comment="input: SYN/RST scan"
+add chain=input action=add-src-to-address-list address-list="port scanners" address-list-timeout=2w in-interface-list=WAN protocol=tcp tcp-flags=fin,psh,urg,!syn,!rst,!ack comment="input: FIN/PSH/URG scan"
+add chain=input action=add-src-to-address-list address-list="port scanners" address-list-timeout=2w in-interface-list=WAN protocol=tcp tcp-flags=fin,syn,rst,psh,ack,urg comment="input: ALL/ALL scan"
+add chain=input action=add-src-to-address-list address-list="port scanners" address-list-timeout=2w in-interface-list=WAN protocol=tcp tcp-flags=!fin,!syn,!rst,!psh,!ack,!urg comment="input: NMAP NULL scan"
+
+add chain=input action=drop connection-state=invalid comment="input: drop invalid"
+
+# Brute force SSH (porta 22) solo da WAN: 4 connessioni nuove in 1 minuto = blacklist 1w3d
+# Ordine inverso (blacklist, stage3, stage2, stage1) per non far scalare piu' stage con lo stesso pacchetto
+add chain=input action=drop in-interface-list=WAN protocol=tcp dst-port=22 src-address-list=ssh_blacklist comment="input: drop ssh blacklist"
+add chain=input action=add-src-to-address-list address-list=ssh_blacklist address-list-timeout=1w3d in-interface-list=WAN protocol=tcp dst-port=22 connection-state=new src-address-list=ssh_stage3 log=yes log-prefix=BLACKLIST-22 comment="input: ssh -> blacklist"
+add chain=input action=add-src-to-address-list address-list=ssh_stage3 address-list-timeout=1m in-interface-list=WAN protocol=tcp dst-port=22 connection-state=new src-address-list=ssh_stage2 comment="input: ssh stage3"
+add chain=input action=add-src-to-address-list address-list=ssh_stage2 address-list-timeout=1m in-interface-list=WAN protocol=tcp dst-port=22 connection-state=new src-address-list=ssh_stage1 comment="input: ssh stage2"
+add chain=input action=add-src-to-address-list address-list=ssh_stage1 address-list-timeout=1m in-interface-list=WAN protocol=tcp dst-port=22 connection-state=new comment="input: ssh stage1"
+
+# Brute force Winbox (porta 8291), stessa logica con liste dedicate
+add chain=input action=drop in-interface-list=WAN protocol=tcp dst-port=8291 src-address-list=winbox_blacklist comment="input: drop winbox blacklist"
+add chain=input action=add-src-to-address-list address-list=winbox_blacklist address-list-timeout=1w3d in-interface-list=WAN protocol=tcp dst-port=8291 connection-state=new src-address-list=winbox_stage3 log=yes log-prefix=BLACKLIST-8291 comment="input: winbox -> blacklist"
+add chain=input action=add-src-to-address-list address-list=winbox_stage3 address-list-timeout=1m in-interface-list=WAN protocol=tcp dst-port=8291 connection-state=new src-address-list=winbox_stage2 comment="input: winbox stage3"
+add chain=input action=add-src-to-address-list address-list=winbox_stage2 address-list-timeout=1m in-interface-list=WAN protocol=tcp dst-port=8291 connection-state=new src-address-list=winbox_stage1 comment="input: winbox stage2"
+add chain=input action=add-src-to-address-list address-list=winbox_stage1 address-list-timeout=1m in-interface-list=WAN protocol=tcp dst-port=8291 connection-state=new comment="input: winbox stage1"
+
+# ICMP da WAN verso il router (chain dedicata, limite per singolo IP sorgente)
+add chain=input action=jump jump-target=ICMP-IN protocol=icmp in-interface-list=WAN comment="input: ICMP da WAN"
+
+# Tutto il resto verso il router e' bloccato
+add chain=input action=drop comment="input: drop all else"
+
+# ------------------------------ ICMP-IN ------------------------------
+add chain=ICMP-IN action=accept protocol=icmp icmp-options=8:0 dst-limit=5,10,src-address/1m comment="ICMP-IN: echo request (limite per sorgente)"
+add chain=ICMP-IN action=accept protocol=icmp icmp-options=0:0 comment="ICMP-IN: echo reply"
+add chain=ICMP-IN action=accept protocol=icmp icmp-options=11:0 comment="ICMP-IN: time exceeded"
+add chain=ICMP-IN action=accept protocol=icmp icmp-options=3:0-4 comment="ICMP-IN: destination unreachable + PMTUD"
+add chain=ICMP-IN action=drop protocol=icmp comment="ICMP-IN: drop altri ICMP"
+
+# ------------------------------ FORWARD ------------------------------
+# Port scanner prima del fasttrack (il fasttrack salta il firewall)
+add chain=forward action=drop in-interface-list=WAN src-address-list="port scanners" comment="forward: drop port scanners"
+add chain=forward action=add-src-to-address-list address-list="port scanners" address-list-timeout=2w in-interface-list=WAN protocol=tcp psd=21,3s,3,1 comment="forward: port scan (psd)"
+add chain=forward action=add-src-to-address-list address-list="port scanners" address-list-timeout=2w in-interface-list=WAN protocol=tcp tcp-flags=fin,!syn,!rst,!psh,!ack,!urg comment="forward: NMAP FIN Stealth scan"
+add chain=forward action=add-src-to-address-list address-list="port scanners" address-list-timeout=2w in-interface-list=WAN protocol=tcp tcp-flags=fin,syn comment="forward: SYN/FIN scan"
+add chain=forward action=add-src-to-address-list address-list="port scanners" address-list-timeout=2w in-interface-list=WAN protocol=tcp tcp-flags=syn,rst comment="forward: SYN/RST scan"
+add chain=forward action=add-src-to-address-list address-list="port scanners" address-list-timeout=2w in-interface-list=WAN protocol=tcp tcp-flags=fin,psh,urg,!syn,!rst,!ack comment="forward: FIN/PSH/URG scan"
+add chain=forward action=add-src-to-address-list address-list="port scanners" address-list-timeout=2w in-interface-list=WAN protocol=tcp tcp-flags=fin,syn,rst,psh,ack,urg comment="forward: ALL/ALL scan"
+add chain=forward action=add-src-to-address-list address-list="port scanners" address-list-timeout=2w in-interface-list=WAN protocol=tcp tcp-flags=!fin,!syn,!rst,!psh,!ack,!urg comment="forward: NMAP NULL scan"
+
+# NB: il fasttrack esclude il traffico da queue/QoS (es. il tuo voip-qos). Se usi le queue, disabilita questa regola.
+add chain=forward action=fasttrack-connection connection-state=established,related comment="forward: fasttrack"
+add chain=forward action=accept connection-state=established,related,untracked comment="forward: accept established,related,untracked"
+add chain=forward action=drop connection-state=invalid comment="forward: drop invalid"
+add chain=forward action=accept connection-state=new connection-nat-state=dstnat in-interface-list=WAN comment="forward: accept port forward (DSTNAT) da WAN"
+add chain=forward action=accept connection-state=new in-interface-list=LAN comment="forward: accept nuove connessioni da LAN"
+add chain=forward action=drop comment="forward: drop all else"
+
+# OUTPUT: nessuna regola (il router puo' generare qualsiasi traffico, ICMP compreso)
