@@ -1,37 +1,81 @@
-###Set Passthrough=no to reduce CPU usage for rules that do not need to be re-validated once they've been processed###
-###connection-mark=no-mark to prevent re-marking of already marked connections and hence waste CPU cycles###
-/ip firewall mangle
-###Incoming connections through ISP1 must leave through ISP1###
-add action=mark-connection chain=prerouting connection-mark=no-mark in-interface=pppoe-out1 new-connection-mark=ISP1_conn passthrough=no
-###Incoming connections through ISP2 must leave through ISP2###
-add action=mark-connection chain=prerouting connection-mark=no-mark in-interface=pppoe-out2 new-connection-mark=ISP2_conn passthrough=no
-###I am assuming a 50/50 split ratio between the two ISPs#
-###We are using dst-address-list=!not_in_internet && dst-address-type=!local to prevent marking LAN-to-LAN traffic###
-###We can use PCC to handle HTTP/HTTPS traffic with "both-addresses" attribute to reduce chances of connections being marked more "randomly" which would break the connections as then connections would go through ISP1 and ISP2 more "randomly" and break. However in this case, I used "both-addresses-and-ports" based on my personal experience of traffic working just fine###
-###For old school HTTP/HTTPS traffic###
-###50% going to ISP1###
-add action=mark-connection chain=prerouting connection-mark=no-mark dst-address-list=!not_in_internet dst-address-type=!local dst-port=80,443 in-interface-list=LAN new-connection-mark=ISP1_conn passthrough=yes per-connection-classifier=both-addresses-and-ports:2/0 protocol=tcp
-###50% going to ISP2###
-add action=mark-connection chain=prerouting connection-mark=no-mark dst-address-list=!not_in_internet dst-address-type=!local dst-port=80,443 in-interface-list=LAN new-connection-mark=ISP2_conn passthrough=yes per-connection-classifier=both-addresses-and-ports:2/1 protocol=tcp
-###For new school HTTP3 traffic aka QUIC###
-###50% going to ISP1###
-add action=mark-connection chain=prerouting connection-mark=no-mark dst-address-list=!not_in_internet dst-address-type=!local dst-port=80,443 in-interface-list=LAN new-connection-mark=ISP1_conn passthrough=yes per-connection-classifier=both-addresses-and-ports:2/0 protocol=udp
-###50% going to ISP2###
-add action=mark-connection chain=prerouting connection-mark=no-mark dst-address-list=!not_in_internet dst-address-type=!local dst-port=80,443 in-interface-list=LAN new-connection-mark=ISP2_conn passthrough=yes per-connection-classifier=both-addresses-and-ports:2/1 protocol=udp
-###If you have a third uplink, then the split ratio would be 3/0, 3/1, 3/2###
-###Now we will use Nth for non HTTP/HTTPs traffic in order to acheieve bandwidth aggregation###
-###50% going to ISP1###
-add action=mark-connection chain=prerouting connection-mark=no-mark dst-address-list=!not_in_internet dst-address-type=!local in-interface-list=LAN new-connection-mark=ISP1_conn nth=2,1 passthrough=yes
-###50% going to ISP2###
-add action=mark-connection chain=prerouting connection-mark=no-mark dst-address-list=!not_in_internet dst-address-type=!local in-interface-list=LAN new-connection-mark=ISP2_conn nth=2,2 passthrough=yes
-###Now we will send the marked connections to their appropriate routing table###
-###For our marked/split traffic###
-add action=mark-routing chain=prerouting connection-mark=ISP1_conn in-interface-list=LAN new-routing-mark=to_ISP1 passthrough=no
-add action=mark-routing chain=prerouting connection-mark=ISP2_conn in-interface-list=LAN new-routing-mark=to_ISP2 passthrough=no
-###For the incoming traffic from WAN###
-add action=mark-routing chain=output connection-mark=ISP1_conn new-routing-mark=to_ISP1 out-interface=pppoe-out1 passthrough=no
-add action=mark-routing chain=output connection-mark=ISP2_conn new-routing-mark=to_ISP2 out-interface=pppoe-out2 passthrough=no
-###Now Finally we add the required routing tables###
-/ip route
-add check-gateway=ping comment="Load Balancing Route to ISP 1" distance=1 gateway=pppoe-out1 routing-mark=to_ISP1
-add check-gateway=ping comment="Load Balancing Route to ISP 2" distance=1 gateway=pppoe-out2 routing-mark=to_ISP2
+# MikroTik RouterOS 6 - Dual WAN PCC 50/50 with recursive failover
+# WAN1: pppoe-out1
+# WAN2: pppoe-out2
+# LAN interface-list: LAN
+#
+# IMPORTANT:
+# 1) Take a backup/export before importing.
+# 2) Run from WinBox/console with Safe Mode enabled.
+# 3) Confirm interface-list "LAN" contains ALL LAN/bridge/VLAN interfaces.
+# 4) This file assumes both PPPoE clients already exist and are named exactly
+#    pppoe-out1 and pppoe-out2.
+# 5) Import ONCE. Existing rules with the same comments are not duplicated.
+# 6) FastTrack is disabled because it can bypass policy-routing processing.
+#
+# Health-check targets:
+# ISP1 -> 1.1.1.1
+# ISP2 -> 8.8.8.8
+# If either target blocks ICMP, choose a different reliable target.
+
+:if ([:len [/interface pppoe-client find name="pppoe-out1"]] = 0) do={ :error "pppoe-out1 not found - aborting" }
+:if ([:len [/interface pppoe-client find name="pppoe-out2"]] = 0) do={ :error "pppoe-out2 not found - aborting" }
+:if ([:len [/interface list find name="LAN"]] = 0) do={ :error "Interface list LAN not found - create it and add LAN/VLAN interfaces first" }
+
+# Backup reminder: create backups manually before import.
+# Disable automatic default-route installation by the PPPoE clients.
+/interface pppoe-client set [find name="pppoe-out1"] add-default-route=no
+/interface pppoe-client set [find name="pppoe-out2"] add-default-route=no
+
+# Exclude private, link-local and CGNAT destination ranges from PCC.
+:if ([:len [/ip firewall address-list find list="not_in_internet" address="10.0.0.0/8"]] = 0) do={ /ip firewall address-list add list=not_in_internet address=10.0.0.0/8 comment="PCC exclusion RFC1918" }
+:if ([:len [/ip firewall address-list find list="not_in_internet" address="172.16.0.0/12"]] = 0) do={ /ip firewall address-list add list=not_in_internet address=172.16.0.0/12 comment="PCC exclusion RFC1918" }
+:if ([:len [/ip firewall address-list find list="not_in_internet" address="192.168.0.0/16"]] = 0) do={ /ip firewall address-list add list=not_in_internet address=192.168.0.0/16 comment="PCC exclusion RFC1918" }
+:if ([:len [/ip firewall address-list find list="not_in_internet" address="169.254.0.0/16"]] = 0) do={ /ip firewall address-list add list=not_in_internet address=169.254.0.0/16 comment="PCC exclusion link-local" }
+:if ([:len [/ip firewall address-list find list="not_in_internet" address="100.64.0.0/10"]] = 0) do={ /ip firewall address-list add list=not_in_internet address=100.64.0.0/10 comment="PCC exclusion CGNAT" }
+
+# Disable FastTrack rules to ensure marked traffic follows policy routing.
+/ip firewall filter disable [find action=fasttrack-connection]
+
+# MANGLE: inbound connection affinity.
+:if ([:len [/ip firewall mangle find comment="PCC6 01 incoming ISP1"]] = 0) do={ /ip firewall mangle add chain=prerouting action=mark-connection connection-state=new connection-mark=no-mark in-interface=pppoe-out1 new-connection-mark=ISP1_conn passthrough=yes comment="PCC6 01 incoming ISP1" }
+:if ([:len [/ip firewall mangle find comment="PCC6 02 incoming ISP2"]] = 0) do={ /ip firewall mangle add chain=prerouting action=mark-connection connection-state=new connection-mark=no-mark in-interface=pppoe-out2 new-connection-mark=ISP2_conn passthrough=yes comment="PCC6 02 incoming ISP2" }
+
+# PCC 50/50 for new LAN-originated connections (TCP, UDP and other IP protocols).
+:if ([:len [/ip firewall mangle find comment="PCC6 03 PCC ISP1 50"]] = 0) do={ /ip firewall mangle add chain=prerouting action=mark-connection connection-state=new connection-mark=no-mark in-interface-list=LAN dst-address-type=!local dst-address-list=!not_in_internet per-connection-classifier=both-addresses-and-ports:2/0 new-connection-mark=ISP1_conn passthrough=yes comment="PCC6 03 PCC ISP1 50" }
+:if ([:len [/ip firewall mangle find comment="PCC6 04 PCC ISP2 50"]] = 0) do={ /ip firewall mangle add chain=prerouting action=mark-connection connection-state=new connection-mark=no-mark in-interface-list=LAN dst-address-type=!local dst-address-list=!not_in_internet per-connection-classifier=both-addresses-and-ports:2/1 new-connection-mark=ISP2_conn passthrough=yes comment="PCC6 04 PCC ISP2 50" }
+
+# Apply policy routing only to LAN-originated packets.
+:if ([:len [/ip firewall mangle find comment="PCC6 05 route LAN ISP1"]] = 0) do={ /ip firewall mangle add chain=prerouting action=mark-routing connection-mark=ISP1_conn in-interface-list=LAN new-routing-mark=to_ISP1 passthrough=no comment="PCC6 05 route LAN ISP1" }
+:if ([:len [/ip firewall mangle find comment="PCC6 06 route LAN ISP2"]] = 0) do={ /ip firewall mangle add chain=prerouting action=mark-routing connection-mark=ISP2_conn in-interface-list=LAN new-routing-mark=to_ISP2 passthrough=no comment="PCC6 06 route LAN ISP2" }
+
+# Router-originated replies to connections arriving from either WAN.
+:if ([:len [/ip firewall mangle find comment="PCC6 07 router replies ISP1"]] = 0) do={ /ip firewall mangle add chain=output action=mark-routing connection-mark=ISP1_conn new-routing-mark=to_ISP1 passthrough=no comment="PCC6 07 router replies ISP1" }
+:if ([:len [/ip firewall mangle find comment="PCC6 08 router replies ISP2"]] = 0) do={ /ip firewall mangle add chain=output action=mark-routing connection-mark=ISP2_conn new-routing-mark=to_ISP2 passthrough=no comment="PCC6 08 router replies ISP2" }
+
+# Recursive health-check host routes, installed in main and both policy tables.
+:if ([:len [/ip route find comment="PCC6 probe ISP1 main"]] = 0) do={ /ip route add dst-address=1.1.1.1/32 gateway=pppoe-out1 scope=10 comment="PCC6 probe ISP1 main" }
+:if ([:len [/ip route find comment="PCC6 probe ISP2 main"]] = 0) do={ /ip route add dst-address=8.8.8.8/32 gateway=pppoe-out2 scope=10 comment="PCC6 probe ISP2 main" }
+
+:if ([:len [/ip route find comment="PCC6 probe ISP1 to_ISP1"]] = 0) do={ /ip route add dst-address=1.1.1.1/32 gateway=pppoe-out1 routing-mark=to_ISP1 scope=10 comment="PCC6 probe ISP1 to_ISP1" }
+:if ([:len [/ip route find comment="PCC6 probe ISP2 to_ISP1"]] = 0) do={ /ip route add dst-address=8.8.8.8/32 gateway=pppoe-out2 routing-mark=to_ISP1 scope=10 comment="PCC6 probe ISP2 to_ISP1" }
+
+:if ([:len [/ip route find comment="PCC6 probe ISP1 to_ISP2"]] = 0) do={ /ip route add dst-address=1.1.1.1/32 gateway=pppoe-out1 routing-mark=to_ISP2 scope=10 comment="PCC6 probe ISP1 to_ISP2" }
+:if ([:len [/ip route find comment="PCC6 probe ISP2 to_ISP2"]] = 0) do={ /ip route add dst-address=8.8.8.8/32 gateway=pppoe-out2 routing-mark=to_ISP2 scope=10 comment="PCC6 probe ISP2 to_ISP2" }
+
+# Main routing table: ISP1 primary, ISP2 backup.
+:if ([:len [/ip route find comment="PCC6 MAIN ISP1 primary"]] = 0) do={ /ip route add dst-address=0.0.0.0/0 gateway=1.1.1.1 distance=1 target-scope=11 check-gateway=ping comment="PCC6 MAIN ISP1 primary" }
+:if ([:len [/ip route find comment="PCC6 MAIN ISP2 backup"]] = 0) do={ /ip route add dst-address=0.0.0.0/0 gateway=8.8.8.8 distance=2 target-scope=11 check-gateway=ping comment="PCC6 MAIN ISP2 backup" }
+
+# Policy table to_ISP1: ISP1 primary, ISP2 backup.
+:if ([:len [/ip route find comment="PCC6 to_ISP1 primary"]] = 0) do={ /ip route add dst-address=0.0.0.0/0 gateway=1.1.1.1 routing-mark=to_ISP1 distance=1 target-scope=11 check-gateway=ping comment="PCC6 to_ISP1 primary" }
+:if ([:len [/ip route find comment="PCC6 to_ISP1 backup"]] = 0) do={ /ip route add dst-address=0.0.0.0/0 gateway=8.8.8.8 routing-mark=to_ISP1 distance=2 target-scope=11 check-gateway=ping comment="PCC6 to_ISP1 backup" }
+
+# Policy table to_ISP2: ISP2 primary, ISP1 backup.
+:if ([:len [/ip route find comment="PCC6 to_ISP2 primary"]] = 0) do={ /ip route add dst-address=0.0.0.0/0 gateway=8.8.8.8 routing-mark=to_ISP2 distance=1 target-scope=11 check-gateway=ping comment="PCC6 to_ISP2 primary" }
+:if ([:len [/ip route find comment="PCC6 to_ISP2 backup"]] = 0) do={ /ip route add dst-address=0.0.0.0/0 gateway=1.1.1.1 routing-mark=to_ISP2 distance=2 target-scope=11 check-gateway=ping comment="PCC6 to_ISP2 backup" }
+
+# NAT per WAN. Existing equivalent masquerade rules may already be present.
+:if ([:len [/ip firewall nat find comment="PCC6 NAT ISP1"]] = 0) do={ /ip firewall nat add chain=srcnat action=masquerade out-interface=pppoe-out1 comment="PCC6 NAT ISP1" }
+:if ([:len [/ip firewall nat find comment="PCC6 NAT ISP2"]] = 0) do={ /ip firewall nat add chain=srcnat action=masquerade out-interface=pppoe-out2 comment="PCC6 NAT ISP2" }
+
+:put "PCC6 import completed. Check /ip route print detail and /ip firewall mangle print stats."
